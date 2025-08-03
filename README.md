@@ -2,6 +2,8 @@
 
 A C++ (Qt-based) desktop application to create and extract archives in various formats (ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ) with a modern dark-themed interface.
 
+<img width="955" height="666" alt="Image" src="https://github.com/user-attachments/assets/2cc4c89e-eeda-418c-a47e-0134344ab58d" />
+
 #### Features of  Archive Manager(beta, 3rd of August 2025).
 
 
