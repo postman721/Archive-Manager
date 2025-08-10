@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QApplication>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QProcess>
@@ -9,7 +10,10 @@
 #include <QMimeData>
 #include <QUrl>
 #include <QDebug>
-
+#include <QRegularExpression>
+#include <QDragEnterEvent>
+#include <QDropEvent>
+#include <QListWidgetItem>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -55,7 +59,7 @@ void MainWindow::dropEvent(QDropEvent *event)
 {
     droppedPaths.clear();
     for (const QUrl &url : event->mimeData()->urls()) {
-        QString path = url.toLocalFile();
+        const QString path = url.toLocalFile();
         if (!path.isEmpty())
             droppedPaths << path;
     }
@@ -70,11 +74,11 @@ void MainWindow::dropEvent(QDropEvent *event)
 //--------------------------------------------------------------
 void MainWindow::on_openButton_clicked()
 {
-    QString archivePath = QFileDialog::getOpenFileName(
+    const QString archivePath = QFileDialog::getOpenFileName(
         this,
         tr("Open Archive"),
         QDir::homePath(),
-        tr("Archive Files (*.zip *.tar *.tar.gz *.tar.bz2 *.tar.xz);;Zip (*.zip);;Tar (*.tar *.tar.gz *.tar.bz2 *.tar.xz)"));
+        tr("Archive Files (*.zip *.tar *.tar.gz *.tar.bz2 *.tar.xz)"));
 
     if (archivePath.isEmpty())
         return;
@@ -82,7 +86,7 @@ void MainWindow::on_openButton_clicked()
     // Determine type and list contents
     QString program;
     QStringList listArgs;
-    bool isZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
+    const bool isZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
 
     if (isZip) {
         program = "unzip";
@@ -102,24 +106,38 @@ void MainWindow::on_openButton_clicked()
     QProcess listProc;
     listProc.setProcessChannelMode(QProcess::MergedChannels);
     listProc.start(program, listArgs);
-    listProc.waitForFinished();
+    if (!listProc.waitForFinished()) {
+        QMessageBox::critical(this, tr("Error"), tr("Listing process timed out."));
+        return;
+    }
 
-    QString output = listProc.readAll().trimmed();
+    const QString output = QString::fromLocal8Bit(listProc.readAll()).trimmed();
     QStringList fileList;
 
     if (isZip) {
-        // Parse unzip -l output: skip header/footer lines
-        QStringList lines = output.split('\n', Qt::SkipEmptyParts);
-        int start = 3;
-        int end = lines.size() - 2;
-        for (int i = start; i < end; ++i) {
-            QString line = lines.at(i).trimmed();
-            QStringList parts = line.split(QRegExp("\\s+"), Qt::SkipEmptyParts);
-            if (!parts.isEmpty()) {
-                fileList << parts.last();
+        // Parse `unzip -l` output robustly (filenames may contain spaces)
+        // Look for the dashed line separators and take the lines between them.
+        const QStringList lines = output.split('\n', Qt::SkipEmptyParts);
+        int dash1 = -1, dash2 = -1;
+        for (int i = 0; i < lines.size(); ++i) {
+            if (lines.at(i).trimmed().startsWith("----")) {
+                if (dash1 == -1) dash1 = i;
+                else { dash2 = i; break; }
+            }
+        }
+        if (dash1 != -1 && dash2 != -1 && dash2 > dash1 + 1) {
+            for (int i = dash1 + 1; i < dash2; ++i) {
+                const QString line = lines.at(i).trimmed();
+                // Expected columns: Length  Date  Time  Name (Name may contain spaces)
+                // Split the first three columns, then take the remainder as filename.
+                QRegularExpression re(R"(^\s*\d+\s+\d{4}-?\d{2}-?\d{2}\s+\d{2}:\d{2}\s+(.+)$)");
+                QRegularExpressionMatch m = re.match(line);
+                if (m.hasMatch())
+                    fileList << m.captured(1).trimmed();
             }
         }
     } else {
+        // tar lists one entry per line
         fileList = output.split('\n', Qt::SkipEmptyParts);
     }
 
@@ -145,11 +163,12 @@ static bool runExtract(const QString &archivePath,
                        const QStringList &items,
                        QString &errorOut)
 {
-    bool isZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
-    QString program = isZip ? "unzip" : "tar";
+    const bool isZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
+    const QString program = isZip ? "unzip" : "tar";
     QStringList args;
 
     if (isZip) {
+        // unzip: options first, then archive, then optional file list, then -d dir
         args << "-o" << archivePath;
         if (!items.isEmpty())
             args.append(items);
@@ -172,9 +191,12 @@ static bool runExtract(const QString &archivePath,
     QProcess proc;
     proc.setProcessChannelMode(QProcess::MergedChannels);
     proc.start(program, args);
-    proc.waitForFinished();
+    if (!proc.waitForFinished()) {
+        errorOut = QObject::tr("Process timed out.");
+        return false;
+    }
 
-    errorOut = proc.readAll();
+    errorOut = QString::fromLocal8Bit(proc.readAll());
     return proc.exitCode() == 0;
 }
 
@@ -197,7 +219,7 @@ void MainWindow::on_extractButton_clicked()
         return;
     }
 
-    QString outputDir = QFileDialog::getExistingDirectory(this, tr("Select Extraction Directory"), QDir::homePath());
+    const QString outputDir = QFileDialog::getExistingDirectory(this, tr("Select Extraction Directory"), QDir::homePath());
     if (outputDir.isEmpty())
         return;
 
@@ -208,7 +230,7 @@ void MainWindow::on_extractButton_clicked()
             auto reply = QMessageBox::warning(
                 this,
                 tr("Overwrite Exists"),
-                tr("'%1' already exists in '%2'. Overwrite?" ).arg(entry).arg(outputDir),
+                tr("'%1' already exists in '%2'. Overwrite?").arg(entry, outputDir),
                 QMessageBox::Yes | QMessageBox::No);
             if (reply != QMessageBox::Yes)
                 return;
@@ -234,7 +256,7 @@ void MainWindow::on_extractAllButton_clicked()
         return;
     }
 
-    QString outputDir = QFileDialog::getExistingDirectory(this, tr("Select Extraction Directory"), QDir::homePath());
+    const QString outputDir = QFileDialog::getExistingDirectory(this, tr("Select Extraction Directory"), QDir::homePath());
     if (outputDir.isEmpty())
         return;
 
@@ -250,7 +272,7 @@ void MainWindow::on_extractAllButton_clicked()
             auto reply = QMessageBox::warning(
                 this,
                 tr("Overwrite Exists"),
-                tr("'%1' already exists in '%2'. Overwrite?" ).arg(entry).arg(outputDir),
+                tr("'%1' already exists in '%2'. Overwrite?").arg(entry, outputDir),
                 QMessageBox::Yes | QMessageBox::No);
             if (reply != QMessageBox::Yes)
                 return;
@@ -281,21 +303,27 @@ void MainWindow::on_createButton_clicked()
         this,
         tr("Save Archive"),
         QDir::homePath() + QDir::separator() + "archive",
-        tr("Tar (*.tar);;Tar GZ (*.tar.gz);;Tar BZ2 (*.tar.bz2);;Tar XZ (*.tar.xz)"),
+        tr("Tar (*.tar);;Tar GZ (*.tar.gz);;Tar BZ2 (*.tar.bz2);;Zip (*.zip);;Tar XZ (*.tar.xz)"),
         &selectedFilter);
 
     if (archivePath.isEmpty())
         return;
 
+    // Acceptable extensions
+    static const QRegularExpression extRe(
+        R"(\.(?:zip|tar(?:\.(?:gz|bz2|xz))?)$)",
+        QRegularExpression::CaseInsensitiveOption);
+
     // Ensure extension matches chosen format
-    static QRegularExpression extRe(R"(\.(tar|tar\.gz|tar\.bz2|tar\.xz)$)", QRegularExpression::CaseInsensitiveOption);
     if (!extRe.match(archivePath).hasMatch()) {
-        if (selectedFilter.contains(".tar.gz"))
+        if (selectedFilter.contains(".tar.gz", Qt::CaseInsensitive))
             archivePath += ".tar.gz";
-        else if (selectedFilter.contains(".tar.bz2"))
+        else if (selectedFilter.contains(".tar.bz2", Qt::CaseInsensitive))
             archivePath += ".tar.bz2";
-        else if (selectedFilter.contains(".tar.xz"))
+        else if (selectedFilter.contains(".tar.xz", Qt::CaseInsensitive))
             archivePath += ".tar.xz";
+        else if (selectedFilter.contains(".zip", Qt::CaseInsensitive))
+            archivePath += ".zip";
         else
             archivePath += ".tar";
     }
@@ -314,10 +342,10 @@ void MainWindow::on_createButton_clicked()
 
     // Check that all dropped items share the same parent directory
     QFileInfo baseFile(droppedPaths.first());
-    QString baseDir = baseFile.absolutePath();
+    const QString baseDir = baseFile.absolutePath();
 
     QStringList relPaths;
-    for (const QString &full : droppedPaths) {
+    for (const QString &full : std::as_const(droppedPaths)) {
         QFileInfo fi(full);
         if (fi.absolutePath() != baseDir) {
             QMessageBox::warning(this, tr("Error"), tr("All files must reside in the same folder."));
@@ -328,7 +356,7 @@ void MainWindow::on_createButton_clicked()
 
     QString program;
     QStringList args;
-    bool useZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
+    const bool useZip = archivePath.endsWith(".zip", Qt::CaseInsensitive);
 
     if (useZip) {
         program = "zip";
@@ -351,9 +379,12 @@ void MainWindow::on_createButton_clicked()
     proc.setWorkingDirectory(baseDir);
     proc.setProcessChannelMode(QProcess::MergedChannels);
     proc.start(program, args);
-    proc.waitForFinished();
+    if (!proc.waitForFinished()) {
+        QMessageBox::critical(this, tr("Error"), tr("Creation process timed out."));
+        return;
+    }
 
-    QString output = proc.readAll();
+    const QString output = QString::fromLocal8Bit(proc.readAll());
 
     if (proc.exitCode() == 0) {
         QMessageBox::information(this, tr("Success"), tr("Archive created:\n%1").arg(archivePath));
