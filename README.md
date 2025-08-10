@@ -13,7 +13,7 @@ A C++ (Qt-based) desktop application to create and extract archives in various f
 
 - Extract selected files or entire archives.
 
-- Archive creation works with all other formats except zip. Zip support will come in future release.
+- Archive creation works with all formats, including zip.
 
 - Overwrite warnings when target files/folders already exist.
 
