@@ -80,3 +80,4 @@ make -j$(nproc)
 
 This project is licensed under the **GPL v2 License**.  
 See the `LICENSE` file for details.
+Copyright JJ Posti <techtimejourney.net>
