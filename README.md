@@ -1,5 +1,7 @@
 # Archive Manager
 
+Archive Manager now supports QT6.
+
 A Qt (C++) desktop application to **create and extract archives** in multiple formats  
 (ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ) with a modern dark-themed interface.
 
