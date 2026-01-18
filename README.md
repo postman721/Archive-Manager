@@ -1,89 +1,78 @@
-### Archive Manager 
+# Archive Manager
 
-A C++ (Qt-based) desktop application to create and extract archives in various formats (ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ) with a modern dark-themed interface.
+A Qt (C++) desktop application to **create and extract archives** in multiple formats  
+(ZIP, TAR, TAR.GZ, TAR.BZ2, TAR.XZ) with a modern dark-themed interface.
 
-<img width="955" height="666" alt="Image" src="https://github.com/user-attachments/assets/2cc4c89e-eeda-418c-a47e-0134344ab58d" />
+![Archive Manager UI](https://github.com/user-attachments/assets/2cc4c89e-eeda-418c-a47e-0134344ab58d)
 
-#### Features of  Archive Manager(beta, 3rd of August 2025).
+---
 
+## Features
 
-- Drag & Drop files/folders to create archives.
+- Drag & drop files/folders to create archives  
+- Open existing archives (ZIP & TAR variants)  
+- Extract selected files or extract all  
+- Overwrite warnings  
+- Multi-selection support  
+- Dark theme with customizable UI styling  
 
-- Open existing archives (ZIP & TAR variants) to list contents.
+---
 
-- Extract selected files or entire archives.
+## Dependencies (Debian/Ubuntu – Qt 6)
 
-- Archive creation works with all formats, including zip.
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  build-essential cmake \
+  qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
+  zip unzip tar
+```
 
-- Overwrite warnings when target files/folders already exist.
+**Package notes**
 
-- Multi-selection support for batch operations.
+- `qt6-base-dev` – Qt Core, GUI & Widgets libraries  
+- `qt6-tools-dev` / `qt6-tools-dev-tools` – Qt tools (uic, rcc, designer)  
+- `zip`, `unzip`, `tar` – Archive utilities  
 
-- Dark theme with customizable UI styling.
+---
 
+## Build Instructions
 
-#### Debian Dependencies as an example
+### Using CMake (Recommended for Qt 6)
 
-Install required packages on Debian/Ubuntu:
+```bash
+git clone https://github.com/yourusername/archive-manager.git
+cd archive-manager
 
-		sudo apt-get update
+cmake -S . -B build
+cmake --build build -j
+./build/ArchiveManager
+```
 
-		sudo apt-get install build-essential qtbase5-dev qttools5-dev-tools unzip zip tar
+### Using qmake (Qt 6)
 
-- build-essential: Compiler toolchain (gcc, g++, make)
+```bash
+git clone https://github.com/yourusername/archive-manager.git
+cd archive-manager
 
-- qtbase5-dev: Qt Core and GUI development libraries
+qmake6 ArchiveManager.pro
+make -j$(nproc)
+./ArchiveManager
+```
 
-- qttools5-dev-tools: Qt tools (UIC, RCC, etc.)
+---
 
-- unzip: List and extract ZIP archives
+## Usage
 
-- zip: Create ZIP archives - feature coming on future release.
+- Launch the app  
+- Drag files/folders to create a new archive  
+- Open an existing archive to view contents  
+- Extract selected files or extract all  
+- Confirm overwrite if files already exist  
 
-- tar: Handle TAR archives (incl. gz, bz2, xz)
+---
 
+## License
 
-#### Build Instructions
-
-Clone the repository:
-
-		git clone https://github.com/yourusername/archive-manager.git
-
-		cd archive-manager
-
-Generate Makefile using qmake or CMake:
-
-With qmake:
-
-		qmake ArchiveManager.pro
-
-With CMake:
-
-		mkdir build && cd build
-
-		cmake ..
-
-Build:
-
-		make -j$(nproc)
-
-Run the executable:
-
-		./ArchiveManager
-
-
-
-#### Usage
-
-- Launch the app.
-
-- Drag files/folders into the list to prepare a new archive, or click Open to browse and load an existing archive.
-
-- To create an archive, choose a target format and filename; confirm overwrite if file exists.
-
-- To extract, select entries and Extract File(s) or use Extract All; confirm overwrite if target exists.
-
-License
-
-This project is licensed under the GPL v2 License. See LICENSE for details.
-
+This project is licensed under the **GPL v2 License**.  
+See the `LICENSE` file for details.
