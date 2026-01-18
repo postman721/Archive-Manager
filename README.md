@@ -38,6 +38,8 @@ sudo apt-get install -y \
 
 ## Build Instructions
 
+Easiest: Use Qtcreator
+
 ### Using CMake (Recommended for Qt 6)
 
 ```bash
